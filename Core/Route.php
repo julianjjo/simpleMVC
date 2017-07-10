@@ -59,7 +59,7 @@ class Route {
 			if ($is_method !== false) {
 				$name_class_method = explode('::',$closure);
 				$nameFileClass = $name_class_method[0];
-				require $nameFileClass.'.php';
+				require 'Controllers/'.$nameFileClass.'.php';
 			}
 		}
 	}

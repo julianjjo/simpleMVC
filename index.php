@@ -13,7 +13,7 @@ $router->add('/rutas_amigables/', function ()
 });
 
 $router->add('/rutas_amigables/productos', 'ProductsController::index');
-$router->add('/rutas_amigables/productos/:name', 'ProductsController::show');
+$router->add('/rutas_amigables/productos/:id', 'ProductsController::show');
 
 // /ruta/con/un/monton/de/parametros
 $router->add('/rutas_amigables/:a/:b/:c/:d/:e/:f', function ($a, $b, $c, $d, $e, $f)
