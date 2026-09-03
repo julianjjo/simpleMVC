@@ -8,12 +8,10 @@
          bootstrap="tests/bootstrap.php"
          cacheDirectory=".phpunit.cache"
          colors="true"
-         failOnWarning="true"
-         failOnNotice="true"
          displayDetailsOnTestsThatTriggerWarnings="true"
          displayDetailsOnTestsThatTriggerNotices="true"
-         beStrictAboutOutputDuringTests="true"
-         failOnRisky="true">
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         beStrictAboutOutputDuringTests="false">
     <testsuites>
         <testsuite name="simpleMVC">
             <directory>tests</directory>

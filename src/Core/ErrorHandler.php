@@ -28,8 +28,67 @@ final class ErrorHandler
     }
 
     /**
-     * Convierte warnings/notices en excepciones y captura los fatales.
+     * Quita los handlers instalados por register(). Los tests lo llaman al
+     * terminar: si se quedaran instalados, los avisos internos del runner acabarían
+     * convertidos en excepciones lanzadas fuera de nuestro código.
      */
+    public function unregister(): void
+    {
+        if (!$this->registered) {
+            return;
+        }
+
+        $this->registered = false;
+
+        restore_error_handler();
+        restore_exception_handler();
+    }
+
+    public function isRegistered(): bool
+    {
+        return $this->registered;
+    }
+
+    /**
+     * Decide si un aviso de PHP se convierte en ErrorException.
+     *
+     * No se convierten los que vienen de una dependencia (sería culpa nuestra
+     * romperle el runner a otra herramienta) ni las deprecaciones salvo en
+     * desarrollo, donde sí interesa enterarse.
+     */
+    public function shouldConvert(int $severity, string $file = ''): bool
+    {
+        if ($file !== '' && self::isVendorFile($file)) {
+            return false;
+        }
+
+        if (self::isDeprecation($severity)) {
+            return $this->config->isDebug();
+        }
+
+        return true;
+    }
+
+    private static function isDeprecation(int $severity): bool
+    {
+        return in_array($severity, [E_DEPRECATED, E_USER_DEPRECATED], true);
+    }
+
+    private static function isVendorFile(string $file): bool
+    {
+        return str_contains(str_replace('\\', '/', $file), '/vendor/');
+    }
+
+    /**
+     * Convierte warnings/notices en excepciones y captura los fatales.
+     *
+     * Es idempotente: llamarlo dos veces no apila dos handlers.
+     */
+    public static function runningUnderTestRunner(): bool
+    {
+        return defined('PHPUNIT_COMPOSER_INSTALL') || defined('__PHPUNIT_PHAR__') || defined('PHPUNIT_TESTSUITE');
+    }
+
     public function register(): void
     {
         if ($this->registered) {
@@ -40,12 +99,29 @@ final class ErrorHandler
 
         $debug = $this->config->isDebug();
 
-        error_reporting(E_ALL);
-        ini_set('display_errors', $debug ? '1' : '0');
-        ini_set('log_errors', '1');
+        // Bajo un runner de pruebas (o cualquier CLI que ya configure sus propios
+        // avisos) no se toca error_reporting ni display_errors: decidir cómo se
+        // reportan los avisos le toca al runner, no a la aplicación.
+        if (!self::runningUnderTestRunner()) {
+            error_reporting(E_ALL);
+            ini_set('display_errors', $debug ? '1' : '0');
+            ini_set('log_errors', '1');
+        }
 
-        set_error_handler(static function (int $severity, string $message, string $file = '', int $line = 0): bool {
+        set_error_handler(function (int $severity, string $message, string $file = '', int $line = 0): bool {
             if ((error_reporting() & $severity) === 0) {
+                return false;
+            }
+
+            if (!$this->shouldConvert($severity, $file)) {
+                // Se devuelve false para que actúe el manejo normal de PHP.
+                if ($this->config->isDebug() && $file !== '' && !self::isVendorFile($file)) {
+                    $this->logger->log(self::isDeprecation($severity) ? 'notice' : 'debug', $message, [
+                        'file' => $file.':'.$line,
+                        'severity' => $severity,
+                    ]);
+                }
+
                 return false;
             }
 
@@ -100,7 +176,7 @@ final class ErrorHandler
         if ($request->wantsJson()) {
             $payload = [
                 'error' => $status,
-                'message' => $this->exposeDetails($e) ? $e->getMessage() : self::genericMessage($status),
+                'message' => $this->exposeMessage($e) ? $e->getMessage() : self::genericMessage($status),
             ];
 
             if ($e instanceof ValidationException) {
@@ -140,13 +216,24 @@ final class ErrorHandler
 
     private function exposeDetails(Throwable $e): bool
     {
-        // Los 4xx son del cliente: su mensaje ya es informativo y seguro.
+        // Trazas y archivo/línea solo de lo que no sea un 4xx anunciado: un 404 o
+        // un 419 ya dicen lo que tienen que decir, y su traza no aporta nada.
         return $this->config->isDebug() && (!$e instanceof HttpException || $e->status() >= 500);
+    }
+
+    /**
+     * En desarrollo se muestra siempre el mensaje de la excepción: los 4xx los
+     * escribe el programador («no hay producto con id 42»), ayudan, y van
+     * escapados por la plantilla. En producción se cambia por el genérico.
+     */
+    private function exposeMessage(Throwable $e): bool
+    {
+        return $this->config->isDebug();
     }
 
     private function renderHtml(Throwable $e, Request $request, int $status): string
     {
-        $message = $this->exposeDetails($e) ? $e->getMessage() : self::genericMessage($status);
+        $message = $this->exposeMessage($e) ? $e->getMessage() : self::genericMessage($status);
 
         if ($this->view !== null) {
             $template = $status === 404 ? 'errors.404' : 'errors.500';

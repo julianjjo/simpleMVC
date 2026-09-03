@@ -72,6 +72,10 @@ final class AppTest extends TestCase
             }
         }
 
+        // El handler global de errores se quita: si se queda instalado, el runner
+        // se lleva ErrorExceptions por avisos que no son de este código.
+        $this->app->errorHandling()->unregister();
+
         App::setInstance($this->previousApp);
     }
 

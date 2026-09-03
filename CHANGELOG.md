@@ -22,6 +22,9 @@ Reescritura completa del tutorial de 2014 (12 archivos, 367 líneas) manteniendo
 - **Validación** (`Validator`) con 18 reglas y mensajes en español, `:attribute` sustituido, etiquetas legibles y errores por campo.
 - **Vistas** con layout, `partial()`, `addNamespace()`, datos compartidos, notación de puntos (`products/index` o `products.index`) y *output escaping* con `e()`.
 - **Flashes y *old input*** en `Session` (envoltorio de `$_SESSION` que también funciona en memoria para pruebas), `Paginator` con ventana de páginas y `?q=…&page=N` conservando filtros.
+- **Contexto de log por petición**: `Logger::pushContext()`/`clearContext()`; `App` lo limpia al terminar, así que un runtime persistente no arrastra el id de correlación de una petición a la siguiente.
+- **`Router::exceptionHandler()`**: lo que lanza la acción de una ruta se convierte en respuesta *dentro* del pipeline, de modo que los middleware que la envuelven decoran también la respuesta de error (un 404 de `findOrFail()` sale con `X-Request-Id` y `X-Response-Time`).
+- Política de avisos en `ErrorHandler`: deprecaciones solo con `APP_DEBUG`, nada de convertir avisos nacidos en `vendor/`, `unregister()` para tests y `error_reporting` intacto bajo PHPUnit.
 - **Consola de desarrollo** (`bin/console.php`): `setup`, `migrate`, `seed [--force]`, `routes`, `ping`, `serve`.
 - **Linter portable** `bin/lint.php` (usa `php -l` y cae a `token_get_all()` si el entorno no permite lanzar subprocesos).
 - **Suite de pruebas**: 185 pruebas / 558 aserciones. Corren con PHPUnit 11 o, si no hay `vendor/`, con `tests/run.php` (runner propio de cero dependencias con un *shim* de `TestCase`).
@@ -53,6 +56,21 @@ Reescritura completa del tutorial de 2014 (12 archivos, 367 líneas) manteniendo
 - No había manejo de errores: cualquier aviso o excepción terminaba en una página en blanco. Ahora hay `ErrorHandler` con páginas 404/500, trazas solo en `APP_DEBUG=true` y registro en `storage/logs/app.log`.
 - Rutas sin verbos HTTP: un `DELETE` se aceptaba igual que un `GET`. Ahora hay 405 con `Allow` y verificación de método.
 - Sin autoloading, sin pruebas, sin CI, sin licencia escrita.
+
+### Corregido en esta misma tanda (encontrado por la suite)
+- `Database::update()` ensamblaba los *bindings* con el WHERE delante del SET: los UPDATE no fallaban pero **no cambiaban ninguna fila**. Orden corregido y `compileUpdate()`/`compileDelete()` expuestos.
+- `Router::middleware()` guardaba el middleware global pero `register()` solo aplicaba el de los grupos: `$router->middleware(…)` no llegaba nunca a las rutas.
+- `Route::build()` no compilaba la ruta antes de leer los parámetros y usaba `'$1'.$replacement`, que con un `id` numérico se leía como el grupo 11: `route('products.show', ['id' => 1])` devolvía el patrón crudo o la ruta vacía.
+- `Response::json()` estaba dentro de un docblock sin cerrar (el método no existía en tiempo de ejecución).
+- `View` no aceptaba nombres con puntos (`errors.404`) y las páginas de error caían al texto plano; el guardado del `ob_start()` del layout y las variables del contracto (`current_path`, `debug`…) tampoco estaban garantizados fuera de una petición.
+- `View::path()` normalizaba los puntos *antes* de comprobar `..`, con lo que la guarda de traversal se saltaba sola.
+- `Container` intentaba instanciar `Closure` al autowirear `CsrfMiddleware` y la guarda anti-ciclos no cubría los bindings definidos con closures (bucle infinito hasta agotar la memoria).
+- Los datos de ejemplo guardaban slugs con espacios: ninguna URL canónica coincidía (`findBySlug()` ahora normaliza y `database/seeds.php` cita `Str::slug()`).
+- `Request` solo aplicaba `_method` en `capture()`: las sub-peticiones construidas a mano se quedaban en POST y daban 405.
+- `QueryBuilder::pluck()` citaba dos veces el identificador; `Paginator::firstItem()` decía 1 en una página vacía.
+- Los flashes se envejecían en `Session::start()` (que es idempotente), así que con un runtime persistente no llegaban nunca a la siguiente petición.
+- `bin/lint.php` colgaba en entornos sin `exec`: ahora cae a `token_get_all(TOKEN_PARSE)`.
+- `templates/layout.php` llamaba a una variable `$e` inexistente: todas las páginas daban 500.
 
 ### Retirado
 - `Core/Loader.php` (el `spl_autoload_register` artesanal con `str_replace`), `Core/Model.php` acoplado a `mysqli`, `Config.php` con constantes y `TemplateBase.php`.

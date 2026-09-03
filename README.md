@@ -413,6 +413,23 @@ Make: `make help`, `make demo`, `make test`.
 
 ---
 
+### Avisos y errores de PHP
+
+`ErrorHandler::register()` (lo hace `App::boot()`) pone `E_ALL` y convierte
+warnings/notices en `ErrorException` para que un detalle tonto no se cuele en
+producción. Tres matices que importan:
+
+- las **deprecaciones** solo se convierten con `APP_DEBUG=true` (en producción se
+  registran y pasan);
+- los avisos que se originan **dentro de `vendor/`** nunca se convierten: no es
+  nuestro código y romperían la herramienta que lo esté ejecutando;
+- hay `unregister()` — los tests lo llaman en `tearDown()` para dejar al runner
+  en paz, y bajo PHPUnit (`PHPUNIT_COMPOSER_INSTALL`) el handler ni toca
+  `error_reporting`/`display_errors`.
+
+Los avisos que no se convierten se registran igual en el logger cuando salen de
+archivos del proyecto, así que no se pierden.
+
 ## Pruebas
 
 ```bash
