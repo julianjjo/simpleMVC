@@ -8,6 +8,7 @@ use Closure;
 use SimpleMvc\Exceptions\HttpException;
 use SimpleMvc\Exceptions\MethodNotAllowedHttpException;
 use SimpleMvc\Exceptions\NotFoundHttpException;
+use Throwable;
 
 /**
  * Router con soporte de métodos HTTP, grupos, middleware, rutas nombradas,
@@ -30,6 +31,9 @@ final class Router
 
     /** @var array<int, string|callable> */
     private array $middleware = [];
+
+    /** @var (Closure(Throwable, Request): Response)|null */
+    private $exceptionHandler = null;
 
     /** @var array<int, array{prefix: string, middleware: array<int, string|callable>, as: string, where: array<string, string>}> */
     private array $groupStack = [];
@@ -237,6 +241,21 @@ final class Router
         return $route;
     }
 
+    /**
+     * Devuelve un closure que convierte una excepción en respuesta. Se usa
+     * dentro del pipeline (ver runRoute()) para que los middleware que siguen
+     * envolviendo la acción puedan decorar también la respuesta de error:
+     * cabeceras de seguridad, tiempos, CORS, id de correlación.
+     *
+     * @param  (callable(Throwable, Request): Response)|null  $handler
+     */
+    public function exceptionHandler(?callable $handler): self
+    {
+        $this->exceptionHandler = $handler === null ? null : Closure::fromCallable($handler);
+
+        return $this;
+    }
+
     // -----------------------------------------------------------------
     // Dispatch
     // -----------------------------------------------------------------
@@ -281,9 +300,19 @@ final class Router
     private function runRoute(Route $route, Request $request): Response
     {
         $destination = function (Request $request) use ($route): Response {
-            $result = $route->run($this->container, $request, $request->attributes());
+            try {
+                $result = $route->run($this->container, $request, $request->attributes());
 
-            return $result instanceof Response ? $result : Response::make($result);
+                return $result instanceof Response ? $result : Response::make($result);
+            } catch (Throwable $e) {
+                // Sin handler se propaga (así funciona el router suelto en los
+                // tests y si alguien lo reusa fuera de App).
+                if ($this->exceptionHandler === null) {
+                    throw $e;
+                }
+
+                return ($this->exceptionHandler)($e, $request);
+            }
         };
 
         $pipeline = array_reverse($route->middlewareList());

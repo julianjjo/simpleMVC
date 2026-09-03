@@ -54,7 +54,7 @@ final class AppTest extends TestCase
         $container = new Container();
         $container->instance(Config::class, $this->sqliteConfig());
         $container->instance(\SimpleMvc\Core\Database::class, $this->db);
-        $container->instance(Logger::class, new Logger(null, 'critical'));
+        $container->instance(Logger::class, new Logger(null, 'debug'));
 
         $this->session = new Session(native: false);
         $container->instance(Session::class, $this->session);
@@ -347,6 +347,48 @@ final class AppTest extends TestCase
 
         self::assertSame(200, $response->status());
         self::assertSame($before, ob_get_level());
+    }
+
+    public function testLosErroresDeRutaTambienSalenDecorados(): void
+    {
+        // El 404 lo lanza el controller (findOrFail) dentro del pipeline, así que
+        // RequestId todavía puede ponerle sus cabeceras al subir.
+        $noEncontrado = $this->get('/productos/algo-que-no-existe');
+
+        self::assertSame(404, $noEncontrado->status());
+        self::assertMatchesRegularExpression('/^[0-9a-f]{12}$/', (string) $noEncontrado->getHeader('x-request-id'));
+        self::assertStringContainsString('Página no encontrada', $noEncontrado->body());
+
+        // Lo mismo con el 303 de validación fallida.
+        $this->session->start();
+        $invalido = $this->send('POST', '/productos', [
+            '_token' => $this->session->token(),
+            'nombre' => '',
+        ]);
+
+        self::assertSame(303, $invalido->status());
+        self::assertMatchesRegularExpression('/^[0-9a-f]{12}$/', (string) $invalido->getHeader('x-request-id'));
+        self::assertMatchesRegularExpression('/^\d+ ms$/', (string) $invalido->getHeader('x-response-time'));
+        self::assertNotEmpty((string) $invalido->getHeader('location'));
+    }
+
+    public function testElContextoDeLogLlegaHastaElError(): void
+    {
+        $logger = $this->app->make(Logger::class);
+        $before = count($logger->records());
+
+        // RequestId anota el id de correlación; el 419 que lanza CsrfMiddleware
+        // debe registrarse con ese mismo id, aunque la excepción salte del pipeline.
+        $response = $this->send('POST', '/productos', ['nombre' => 'sin token']);
+        self::assertSame(419, $response->status());
+
+        $records = array_slice($logger->records(), $before);
+        $withId = array_values(array_filter($records, static fn (array $r): bool => isset($r['context']['request_id'])));
+
+        self::assertNotEmpty($withId, 'el middleware deja el id en el contexto');
+        self::assertNotEmpty(array_filter($records, static fn (array $r): bool => ($r['context']['request_id'] ?? null) === ($withId[0]['context']['request_id']) && $r['level'] === 'notice'),
+            'la línea del error comparte el id de correlación');
+        self::assertSame([], $logger->context(), 'y el contexto no sobrevive a la petición');
     }
 
     public function testUrlYAssetsConPrefijos(): void

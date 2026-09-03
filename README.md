@@ -229,6 +229,21 @@ Firma: `handle(Request $request, Closure $next): Response`. Vale una clase
 (resuelta por el contenedor) o un closure. Se puede aplicar globalmente, a un
 grupo o a una ruta.
 
+El `App\Middleware\RequestId` del proyecto hace las dos cosas que se piden
+siempre a un middleware de este tipo: anota un id de correlación en el logger
+(`Logger::pushContext()`, de forma que la línea del error sale en
+`storage/logs/app.log` con el mismo id que el resto de la petición) y devuelve
+la respuesta con `X-Request-Id` y `X-Response-Time`.
+
+Sobre errores: lo que lance la **acción** de la ruta (el 404 de `findOrFail()`,
+el 303 de una validación fallida, un 500) se traduce a respuesta *dentro* del
+pipeline, así que los middleware que la envuelven decoran también esa respuesta.
+Lo que nace antes del pipeline (404/405 de enrutamiento) o en el propio
+middleware (419 de CSRF) se resuelve fuera: si necesitas una cabecera también
+ahí, captura alrededor de `$next()`. Y si el proyecto responde por API, los
+middleware se pueden saltar con `Accept: application/json`… o simplemente
+comprobar `$request->wantsJson()` dentro de ellos.
+
 ```php
 $router->middleware(App\Middleware\RequestId::class);          // global
 $router->group(['middleware' => CsrfMiddleware::class], …);     // grupo

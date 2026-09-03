@@ -27,8 +27,11 @@ final class RequestId
         $start = microtime(true);
         $id = bin2hex(random_bytes(6));
 
+        // pushContext(): todo lo que se registre durante esta petición (incluido
+        // el error que acabe en un 404/419/500) sale con el mismo id.
+        $this->logger->pushContext(['request_id' => $id]);
+
         $this->logger->debug('{method} {uri}', [
-            'request_id' => $id,
             'method' => $request->method(),
             'uri' => $request->fullUrl(),
         ]);

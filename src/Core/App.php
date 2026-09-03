@@ -131,6 +131,14 @@ final class App
         $this->errorHandler = new ErrorHandler($this->config, $this->make(Logger::class), $this->view());
         $this->errorHandler->register();
 
+        // El router traduce las excepciones de la acción a respuesta dentro de su
+        // pipeline: los middleware que envuelven la ruta ven la respuesta de error
+        // y pueden añadirle cabeceras (el 404 del controller sale con X-Request-Id,
+        // por ejemplo). El catch de handle() sigue cubriendo lo que pase fuera.
+        $this->router()->exceptionHandler(function (Throwable $e, Request $request): Response {
+            return $this->errorHandler->handle($e, $request);
+        });
+
         $this->registerRoutes();
 
         foreach ($this->bootListeners as $listener) {
@@ -245,6 +253,12 @@ final class App
             $response = $this->router()->dispatch($request);
         } catch (Throwable $e) {
             $response = $this->errorHandler->handle($e, $request);
+        } finally {
+            // El contexto de log es por petición: se limpia aquí para que un
+            // runtime persistente no arrastre el id de correlación a la siguiente.
+            if ($this->container->bound(Logger::class)) {
+                $this->make(Logger::class)->clearContext();
+            }
         }
 
         // Los flashes creados en esta petición pasan a estar disponibles en la

@@ -27,6 +27,15 @@ final class Logger
     /** @var array<int, array{level: string, message: string, context: array<string, mixed>}> */
     private array $memory = [];
 
+    /**
+     * Contexto de la petición actual: se añade a todos los registros hasta que
+     * se limpia (App lo borra al terminar cada petición, de modo que un runtime
+     * persistente no se lo pase a la siguiente).
+     *
+     * @var array<string, mixed>
+     */
+    private array $context = [];
+
     public function __construct(?string $path = null, string $minimumLevel = 'debug')
     {
         // '' cuenta como "sin archivo": solo se guardan en memoria.
@@ -78,6 +87,9 @@ final class Logger
         if (self::LEVELS[$level] < (self::LEVELS[strtolower($this->minimumLevel)] ?? 0)) {
             return;
         }
+
+        // Lo que pase por aquí manda sobre el contexto de la petición.
+        $context = array_merge($this->context, $context);
 
         $record = [
             'level' => $level,
@@ -162,6 +174,30 @@ final class Logger
     public function records(): array
     {
         return $this->memory;
+    }
+
+    /**
+     * Añade contexto para los próximos registros (p. ej. el id de correlación
+     * de la petición, desde un middleware).
+     *
+     * @param  array<string, mixed>  $context
+     */
+    public function pushContext(array $context): void
+    {
+        $this->context = array_merge($this->context, $context);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function context(): array
+    {
+        return $this->context;
+    }
+
+    public function clearContext(): void
+    {
+        $this->context = [];
     }
 
     public function path(): ?string
