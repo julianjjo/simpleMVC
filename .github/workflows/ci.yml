@@ -68,7 +68,7 @@ jobs:
             flat=$(printf '%s' "$out" | sed -e 's/%/%25/g' -e 's/:/%3A/g' | paste -sd' ' -)
             echo "::error title=PHPUnit falló (exit $code) — cabecera::$(printf '%s' "$flat" | head -c 1200)"
             echo "::error title=PHPUnit falló (exit $code) — final::$(printf '%s' "$flat" | tail -c 1200)"
-            bloque=$(printf '%s\n' "$out" | sed -n '/^[0-9]*) Tests/,+8p' | head -n 20 | paste -sd' ' -)
+            bloque=$(printf '%s\n' "$out" | grep -F -A8 -e '✗' -e 'Failed asserting' -e '^[0-9]*) ' | head -n 24 | paste -sd' ' -)
             echo "::error title=Fallo::$(printf '%s' "$bloque" | sed -e 's/%/%25/g' -e 's/:/%3A/g' | head -c 1200)"
             printf '%s\n' "$out" > phpunit-failure.log
           fi
