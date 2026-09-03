@@ -1,0 +1,27 @@
+# Al empaquetar (composer install --prefer-source, descargas de GitHub) no hace
+# falta el andamiaje de desarrollo.
+/.gitattributes         export-ignore
+/.github/               export-ignore
+/.editorconfig          export-ignore
+/.env.example           export-ignore
+/.gitignore             export-ignore
+/.php-cs-fixer.dist.php export-ignore
+/CHANGELOG.md           export-ignore
+/Makefile               export-ignore
+/phpunit.xml.dist       export-ignore
+/tests/                 export-ignore
+/bin/lint.php           export-ignore
+
+# Líneas y diffs estables.
+*.php     text eol=lf diff=php
+*.sql     text eol=lf
+*.md      text eol=lf
+*.css     text eol=lf diff=css
+*.js      text eol=lf
+*.json    text eol=lf
+*.yml     text eol=lf
+*.html    text eol=lf
+*.lock    text eol=lf merge=ours
+
+/storage/db/*     binary export-ignore
+/storage/logs/*   binary export-ignore

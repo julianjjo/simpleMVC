@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests · PHP ${{ matrix.php }}${{ matrix.dependencies == 'lowest' && ' (mínimos)' || '' }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+        dependencies: [locked]
+        include:
+          - php: '8.4'
+            dependencies: lowest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # pdo_sqlite hace falta para la demo y para la suite; pcov para cobertura.
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, pdo_mysql, sqlite3, mbstring, json
+          coverage: pcov
+          ini-values: error_reporting=E_ALL, display_errors=1
+
+      - name: Validar composer.json
+        run: composer validate --strict --no-check-publish
+
+      - name: Obtener la caché de Composer
+        id: composer-cache
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ matrix.php }}-${{ matrix.dependencies }}-${{ hashFiles('composer.json') }}
+
+      - name: Instalar dependencias
+        run: |
+          if [ "${{ matrix.dependencies }}" = "lowest" ]; then
+            composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
+          else
+            composer install --no-interaction --no-progress --prefer-dist
+          fi
+
+      - name: Revisar sintaxis (php -l sobre todo el proyecto)
+        run: php bin/lint.php
+
+      # Si algo sale mal, la última parte de la salida se anota en el check: así
+      # el fallo se ve en la API de checks sin descargar el log ni el artefacto.
+      - name: Suite de pruebas
+        run: |
+          set +e
+          out=$(php vendor/bin/phpunit --testdox --log-junit junit.xml 2>&1)
+          code=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$code" -ne 0 ]; then
+            echo "::error title=PHPUnit falló (exit $code)::$(printf '%s' "$out" | sed -e 's/%/%25/g' -e 's/:/%3A/g' | paste -sd' ' - | tail -c 1400)"
+          fi
+          exit "$code"
+        if: matrix.dependencies == 'locked'
+
+      # Sin PHPUnit (vendor ausente o --no-dev) el runner propio sigue valiendo.
+      - name: Suite de pruebas (runner sin dependencias)
+        run: php tests/run.php
+        if: matrix.dependencies == 'lowest'
+
+      - name: Consola y arranque de la demo
+        run: |
+          php bin/console.php setup
+          php bin/console.php ping
+          php bin/console.php routes
+          php bin/console.php seed --force
+
+      - name: Humo HTTP sobre el servidor de desarrollo
+        run: |
+          php -S 127.0.0.1:8080 -t public public/router.php >/tmp/server.log 2>&1 &
+          sleep 2
+
+          for ruta in "/" "/productos" "/productos/audifonos-over-ear-con-cancelacion-de-ruido" "/api/v1/productos" "/salud" "/no-existe"; do
+            codigo=$(curl -s -o /tmp/cuerpo -w '%{http_code}' "http://127.0.0.1:8080$ruta")
+            echo "$codigo $ruta"
+            case "$ruta" in
+              "/no-existe") [ "$codigo" = "404" ] || { cat /tmp/server.log; exit 1; } ;;
+              *) [ "$codigo" = "200" ] || { cat /tmp/cuerpo; cat /tmp/server.log; exit 1; } ;;
+            esac
+          done
+
+          # Un POST sin token CSRF debe rechazarse (419).
+          codigo=$(curl -s -o /dev/null -w '%{http_code}' -X POST -d 'nombre=x' http://127.0.0.1:8080/productos)
+          echo "$codigo POST /productos sin CSRF"
+          [ "$codigo" = "419" ] || { cat /tmp/server.log; exit 1; }
+
+      - name: Subir el registro de pruebas
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-php${{ matrix.php }}
+          path: junit.xml
+          if-no-files-found: ignore
+
+  sin-dependencias:
+    name: La suite corre sin Composer
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, sqlite3, mbstring
+          coverage: none
+
+      # Sin vendor/autoload.php: el proyecto debe poder probarse tal cual.
+      - name: Runner propio
+        run: php tests/run.php

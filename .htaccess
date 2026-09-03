@@ -1,14 +1,25 @@
+# Compatibilidad con el despliegue clásico: docroot apuntando a la raíz del
+# repositorio. Lo correcto es apuntar el docroot a public/ (ver public/.htaccess).
+#
+# nginx no usa este archivo: ver la sección "Despliegue" del README.
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
-        Options -MultiViews
+        Options -MultiViews -Indexes
     </IfModule>
+
     RewriteEngine On
 
-    # Redirect Trailing Slashes...
-    RewriteRule ^(.*)/$ /$1 [L,R=301]
+    # Nada de .env, .git, etc.
+    RewriteRule (^|/)\. - [F]
 
-    # Handle Front Controller...
+    # El proyecto vive en public/: todo lo que no exista entra por ahí.
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
+    RewriteRule ^ public/index.php [L]
 </IfModule>
+
+# Si alguien no puede configurar el docroot, al menos no se sirve código fuente.
+<FilesMatch "\.(env|md|json|lock|sql|neon|xml|yml)$">
+    Require all denied
+</FilesMatch>

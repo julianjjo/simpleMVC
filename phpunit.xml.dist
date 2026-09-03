@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Config de PHPUnit 11. La suite también puede correr sin PHPUnit con
+    `php tests/run.php` (usa este mismo bootstrap y el mismo directorio).
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         cacheDirectory=".phpunit.cache"
+         colors="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         displayDetailsOnTestsThatTriggerNotices="true"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         beStrictAboutOutputDuringTests="false">
+    <testsuites>
+        <testsuite name="simpleMVC">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>src</directory>
+            <directory>app</directory>
+        </include>
+        <exclude>
+            <file>src/Support/autoload.php</file>
+        </exclude>
+    </source>
+
+    <php>
+        <ini name="error_reporting" value="-1"/>
+        <ini name="memory_limit" value="512M"/>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_DEBUG" value="1"/>
+        <env name="APP_URL" value="http://localhost"/>
+        <env name="DB_DRIVER" value="sqlite"/>
+        <env name="DB_SQLITE_PATH" value=":memory:"/>
+        <env name="LOG_PATH" value=""/>
+    </php>
+</phpunit>

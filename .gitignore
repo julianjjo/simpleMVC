@@ -1,0 +1,28 @@
+# Dependencias
+/vendor/
+/composer.lock
+
+# Configuración local (nunca subir credenciales)
+/.env
+
+# Datos y estado de la aplicación
+/storage/db/*
+/storage/logs/*
+!/storage/db/.gitkeep
+!/storage/logs/.gitkeep
+
+# Herramientas
+/.phpunit.result.cache
+/.phpunit.cache/
+/.php-cs-fixer.cache
+/phpunit.xml
+/phpstan.neon
+/junit.xml
+/coverage/
+
+# Editores y SO
+/.idea/
+/.vscode/
+*.swp
+.DS_Store
+Thumbs.db
