@@ -57,12 +57,33 @@ jobs:
         run: php bin/lint.php
 
       - name: Suite de pruebas
-        run: php vendor/bin/phpunit --testdox --log-junit junit.xml
+        run: |
+          set +e
+          out=$(php vendor/bin/phpunit --testdox --log-junit junit.xml 2>&1)
+          code=$?
+          set -e
+          printf '%s\n' "$out" | tail -n 40
+          if [ "$code" -ne 0 ]; then
+            # Las anotaciones se ven por API aunque no se pueda bajar el log entero.
+            msg=$(printf '%s' "$out" | sed -e 's/%/%25/g' -e 's/:/%3A/g' | paste -sd' ' - | tail -c 1400)
+            echo "::error title=PHPUnit falló (exit $code)::${msg}"
+          fi
+          exit "$code"
         if: matrix.dependencies == 'locked'
 
       # Sin PHPUnit (vendor ausente o --no-dev) el runner propio sigue valiendo.
       - name: Suite de pruebas (runner sin dependencias)
-        run: php tests/run.php
+        run: |
+          set +e
+          out=$(php tests/run.php 2>&1)
+          code=$?
+          set -e
+          printf '%s\n' "$out" | tail -n 40
+          if [ "$code" -ne 0 ]; then
+            msg=$(printf '%s' "$out" | sed -e 's/%/%25/g' -e 's/:/%3A/g' | paste -sd' ' - | tail -c 1400)
+            echo "::error title=runner propio falló (exit $code)::${msg}"
+          fi
+          exit "$code"
         if: matrix.dependencies == 'lowest'
 
       - name: Consola y arranque de la demo
