@@ -18,7 +18,6 @@
 /phpunit.xml
 /phpstan.neon
 /junit.xml
-/phpunit-failure.log
 /coverage/
 
 # Editores y SO

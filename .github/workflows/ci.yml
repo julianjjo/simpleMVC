@@ -56,38 +56,24 @@ jobs:
       - name: Revisar sintaxis (php -l sobre todo el proyecto)
         run: php bin/lint.php
 
+      # Si algo sale mal, la última parte de la salida se anota en el check: así
+      # el fallo se ve en la API de checks sin descargar el log ni el artefacto.
       - name: Suite de pruebas
         run: |
           set +e
           out=$(php vendor/bin/phpunit --testdox --log-junit junit.xml 2>&1)
           code=$?
           set -e
-          printf '%s\n' "$out" | head -n 60
+          printf '%s\n' "$out"
           if [ "$code" -ne 0 ]; then
-            # Las anotaciones se ven por API aunque no se pueda bajar el log entero.
-            flat=$(printf '%s' "$out" | sed -e 's/%/%25/g' -e 's/:/%3A/g' | paste -sd' ' -)
-            for n in 1 2 3 4 5 6; do
-              trozo=$(printf '%s' "$flat" | cut -c $(( (n-1)*1100 + 1 ))-$(( n*1100 )))
-              if [ -n "$trozo" ]; then echo "::error title=salida $n::$trozo"; fi
-            done
-            printf '%s\n' "$out" > phpunit-failure.log
+            echo "::error title=PHPUnit falló (exit $code)::$(printf '%s' "$out" | sed -e 's/%/%25/g' -e 's/:/%3A/g' | paste -sd' ' - | tail -c 1400)"
           fi
           exit "$code"
         if: matrix.dependencies == 'locked'
 
       # Sin PHPUnit (vendor ausente o --no-dev) el runner propio sigue valiendo.
       - name: Suite de pruebas (runner sin dependencias)
-        run: |
-          set +e
-          out=$(php tests/run.php 2>&1)
-          code=$?
-          set -e
-          printf '%s\n' "$out" | tail -n 40
-          if [ "$code" -ne 0 ]; then
-            msg=$(printf '%s' "$out" | sed -e 's/%/%25/g' -e 's/:/%3A/g' | paste -sd' ' - | tail -c 1400)
-            echo "::error title=runner propio falló (exit $code)::${msg}"
-          fi
-          exit "$code"
+        run: php tests/run.php
         if: matrix.dependencies == 'lowest'
 
       - name: Consola y arranque de la demo

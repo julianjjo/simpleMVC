@@ -26,15 +26,31 @@ final class ErrorHandlerTest extends TestCase
         $handler = $this->handler();
         $handler->register();
 
+        // El mask de avisos lo manda quien ejecuta (PHPUnit trae el suyo, y el
+        // handler respeta lo que esté reportándose): se fija a propósito.
+        $previous = error_reporting(E_ALL);
+
         try {
             trigger_error('aviso de prueba', E_USER_WARNING);
             self::fail('El handler debería convertir el warning en ErrorException.');
         } catch (ErrorException $e) {
             self::assertSame('aviso de prueba', $e->getMessage());
             self::assertSame(E_USER_WARNING, $e->getSeverity());
-        } finally {
-            $handler->unregister();
+            self::assertStringContainsString('ErrorHandlerTest.php', $e->getFile());
         }
+
+        // Con el aviso fuera del mask, el handler se aparta y deja hacer a PHP.
+        error_reporting(E_ALL & ~E_USER_WARNING);
+
+        try {
+            trigger_error('no se reporta', E_USER_WARNING);
+            self::assertTrue(true);
+        } catch (ErrorException $e) {
+            self::fail('Un aviso silenciado no debería convertirse en excepción.');
+        }
+
+        error_reporting($previous);
+        $handler->unregister();
 
         // Sin handler instalado, el aviso vuelve a ser solo un aviso.
         self::assertFalse($handler->isRegistered());
