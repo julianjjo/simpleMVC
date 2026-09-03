@@ -26,7 +26,12 @@ if (is_file($composer)) {
     \SimpleMvc\Core\Autoloader::addNamespace('Tests', $root.'/tests');
 }
 
-require_once $root.'/tests/Support/PhpUnitShim.php';
+// El shim SOLO se carga cuando PHPUnit no está disponible: si no, sus clases
+// (una versión incompleta de TestCase) ganarían la partida y PHPUnit reventaría
+// al llamar a métodos que no existen (setBackupGlobals()).
+if (!class_exists(\PHPUnit\Framework\TestCase::class)) {
+    require_once $root.'/tests/Support/PhpUnitShim.php';
+}
 
 // Las pruebas no deben escribir en el log real del proyecto.
 putenv('LOG_PATH=');
