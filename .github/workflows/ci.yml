@@ -62,10 +62,10 @@ jobs:
           out=$(php vendor/bin/phpunit --testdox --log-junit junit.xml 2>&1)
           code=$?
           set -e
-          printf '%s\n' "$out" | tail -n 40
+          printf '%s\n' "$out" | head -n 60
           if [ "$code" -ne 0 ]; then
             # Las anotaciones se ven por API aunque no se pueda bajar el log entero.
-            msg=$(printf '%s' "$out" | sed -e 's/%/%25/g' -e 's/:/%3A/g' | paste -sd' ' - | tail -c 1400)
+            msg=$(printf '%s' "$out" | sed -e 's/%/%25/g' -e 's/:/%3A/g' | paste -sd' ' - | head -c 1400)
             echo "::error title=PHPUnit falló (exit $code)::${msg}"
           fi
           exit "$code"
