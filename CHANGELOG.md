@@ -71,6 +71,9 @@ Reescritura completa del tutorial de 2014 (12 archivos, 367 líneas) manteniendo
 - Los flashes se envejecían en `Session::start()` (que es idempotente), así que con un runtime persistente no llegaban nunca a la siguiente petición.
 - `bin/lint.php` colgaba en entornos sin `exec`: ahora cae a `token_get_all(TOKEN_PARSE)`.
 - `templates/layout.php` llamaba a una variable `$e` inexistente: todas las páginas daban 500.
+- `tests/bootstrap.php` instalaba el shim de PHPUnit siempre: con el runner real montado, sus `TestCase` incompletos ganaban y todo saltaba por `Call to undefined method ::setBackupGlobals()` (exit 255). Ahora el shim solo se carga si `PHPUnit\Framework\TestCase` no existe.
+- El `ErrorHandler` convertido en handler global de PHP secuestraba los avisos del runner de pruebas. Se decidió por capas: `unregister()` disponible, `error_reporting` intacto bajo PHPUnit, nada de tocar `vendor/`, deprecaciones solo en desarrollo y conversión sujeta al mask de avisos vigente.
+- Los slugs de `database/seeds.php` salían con espacios, así que las URLs canónicas no casaban con `findBySlug()`. Se normalizan con `Str::slug()` y el repositorio tolera los antiguos.
 
 ### Retirado
 - `Core/Loader.php` (el `spl_autoload_register` artesanal con `str_replace`), `Core/Model.php` acoplado a `mysqli`, `Config.php` con constantes y `TemplateBase.php`.

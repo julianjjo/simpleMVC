@@ -6,6 +6,7 @@
 > validación, CSRF, consola, 185 pruebas y CI.
 
 ![CI](https://github.com/julianjjo/simpleMVC/actions/workflows/ci.yml/badge.svg)
+<!-- El escudo mira a la rama por defecto: se pone en verde cuando `master` reciba `.github/workflows/ci.yml`. -->
 [![PHP](https://img.shields.io/badge/PHP-8.2%2C%208.3%2C%208.4-777bb3)](https://www.php.net/supported-versions.php)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue)](LICENSE)
 
@@ -434,10 +435,16 @@ archivos del proyecto, así que no se pierden.
 
 ```bash
 composer test          # PHPUnit si hay vendor/, runner propio si no
-php tests/run.php      # 185 pruebas, cero dependencias
+php tests/run.php      # 195 pruebas, cero dependencias
 php tests/run.php --filter=Router
 php vendor/bin/phpunit --testdox
 ```
+
+Los mismos archivos corren en dos modos: con `vendor/` se delega en PHPUnit 11.5
+y sin dependencias usa el shim de `tests/Support/PhpUnitShim.php` (define
+`PHPUnit\Framework\TestCase` con las aserciones que necesita la suite).
+`tests/bootstrap.php` carga el shim **solo** cuando PHPUnit no está disponible,
+que es justo lo que faltaba cuando la suite reventaba bajo el runner de verdad.
 
 La suite cubre router y rutas (verbos, restricciones, 404/405, grupos,
 middleware, CSRF), `Request`/`Response`, contenedor, configuración y `Env`,
