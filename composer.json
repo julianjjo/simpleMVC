@@ -1,0 +1,68 @@
+{
+    "name": "julianjjo/simple-mvc",
+    "description": "Micro-framework MVC en PHP 8.2+ sin dependencias externas: router con verbos HTTP y middleware, PDO con consultas preparadas, vistas con layout, validación, CSRF, logs y tests.",
+    "keywords": ["mvc", "microframework", "router", "rutas-amigables", "php", "pdo"],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Julian J. Orjuela",
+            "homepage": "https://github.com/julianjjo"
+        }
+    ],
+    "require": {
+        "php": ">=8.2",
+        "ext-pdo": "*",
+        "ext-json": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
+    "suggest": {
+        "ext-pdo_sqlite": "Necesario para la demo y los tests sin montar un servidor de base de datos.",
+        "ext-pdo_mysql": "Necesario solo si DB_DRIVER=mysql."
+    },
+    "autoload": {
+        "psr-4": {
+            "SimpleMvc\\": "src/",
+            "App\\": "app/"
+        },
+        "files": [
+            "src/Support/helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "@php tests/run.php",
+        "test:shim": "@php tests/run.php --shim",
+        "test:phpunit": "@php vendor/bin/phpunit",
+        "lint": "@php bin/lint.php",
+        "cs": "@php vendor/bin/php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "@php vendor/bin/php-cs-fixer fix",
+        "setup": "@php bin/console.php setup",
+        "migrate": "@php bin/console.php migrate",
+        "seed": "@php bin/console.php seed",
+        "routes": "@php bin/console.php routes",
+        "dev": "@php -S 127.0.0.1:8000 -t public public/router.php"
+    },
+    "scripts-descriptions": {
+        "test": "Ejecuta la suite (usa PHPUnit si vendor/ existe, si no, el runner propio sin dependencias).",
+        "test:phpunit": "Ejecuta la suite con PHPUnit real.",
+        "lint": "Revisa la sintaxis de todos los .php con php -l.",
+        "setup": "Crea el esquema de la base de datos y carga los datos de ejemplo.",
+        "routes": "Lista las rutas registradas.",
+        "dev": "Servidor de desarrollo de PHP (php -S) con router para URLs amigables."
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    },
+    "scripts-aliases": {
+        "test": ["tests"],
+        "dev": ["serve"]
+    }
+}
