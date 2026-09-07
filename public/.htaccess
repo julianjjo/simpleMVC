@@ -1,0 +1,34 @@
+# Apache: usar cuando el docroot apunta a public/ (lo recomendado).
+# Si el docroot apunta a la raíz del repositorio, sirve el .htaccess de la raíz.
+
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # Bloquear acceso a puntos y archivos ocultos (.env, .git)
+    RewriteRule (^|/)\. - [F]
+
+    # Reescribir todo lo que no sea un archivo o directorio real hacia el
+    # frente de control. Las rutas toleran la barra final, así que no hace
+    # falta el viejo "Redirect Trailing Slashes" (que además rompía /ruta/).
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Caché para estáticos (los nombres llevan ?v= de todos modos).
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+</IfModule>

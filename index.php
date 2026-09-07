@@ -1,24 +1,23 @@
 <?php
 
-require 'core/Loader.php';
+declare(strict_types=1);
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+/*
+|--------------------------------------------------------------------------
+| Compatibilidad con el despliegue antiguo
+|--------------------------------------------------------------------------
+|
+| En la versión original el frente de control estaba en la raíz
+| (`index.php` + `Core/Loader.php`). Ahora vive en public/index.php, que es lo
+| que debería apuntar el docroot. Este archivo deja funcionando los
+| despliegues viejos que apuntan a la raíz del repositorio.
+|
+| Se puede borrar cuando el servidor apunte a public/.
+|
+ */
 
-$router = new Router($_SERVER['REQUEST_URI']);
+// Para que la detección del prefijo de assets vea que el docroot es la raíz.
+$_SERVER['SCRIPT_FILENAME'] = __DIR__.'/public/index.php';
+$_SERVER['SCRIPT_NAME'] = (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php');
 
-$router->add('/rutas_amigables/', function ()
-{
-	return '<h1>Home</h1>';
-});
-
-$router->add('/rutas_amigables/productos', 'ProductsController::index');
-$router->add('/rutas_amigables/productos/:id', 'ProductsController::show');
-
-// /ruta/con/un/monton/de/parametros
-$router->add('/rutas_amigables/:a/:b/:c/:d/:e/:f', function ($a, $b, $c, $d, $e, $f)
-{
-	return "$a<br>$b<br>$c<br>$d<br>$e<br>$f";
-});
-
-$router->run();
+require __DIR__.'/public/index.php';
